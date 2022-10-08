@@ -14,6 +14,7 @@
 #include <OpenGl/gl.h>
 #include <OpenGl/glu.h>
 #include "glut.h"
+#include "cessna.550"
 
 
 //	This is a sample OpenGL / GLUT program
@@ -32,11 +33,11 @@
 //		6. The transformations to be reset
 //		7. The program to quit
 //
-//	Author:			Joe Graphics
+//	Author:			Mateo Estrada
 
 // title of these windows:
 
-const char *WINDOWTITLE = "OpenGL / GLUT Sample -- Joe Graphics";
+const char *WINDOWTITLE = "Cessna Plane by Mateo Estrada";
 const char *GLUITITLE   = "User Interface Window";
 
 // what the glui package defines as true and false:
@@ -743,6 +744,70 @@ InitGraphics( )
 
 }
 
+// Function to draw the cessna with polygons
+
+void drawCessnaPolygons(){
+	int i;
+	struct point *p0, *p1, *p2;
+	struct tri *tp;
+	float p01[3], p02[3], n[3];
+
+	glPushMatrix( );
+	glRotatef(-7., 0., 1., 0.);
+	glTranslatef( 0., -1., 0. );
+	glRotatef(  97.,   0., 1., 0. );
+	glRotatef( -15.,   0., 0., 1. );
+	glBegin( GL_TRIANGLES );
+		for( i=0, tp = CESSNAtris; i < CESSNAntris; i++, tp++ )
+		{
+			p0 = &CESSNApoints[ tp->p0 ];
+			p1 = &CESSNApoints[ tp->p1 ];
+			p2 = &CESSNApoints[ tp->p2 ];
+
+			// fake "lighting" from above:
+
+			p01[0] = p1->x - p0->x;
+			p01[1] = p1->y - p0->y;
+			p01[2] = p1->z - p0->z;
+			p02[0] = p2->x - p0->x;
+			p02[1] = p2->y - p0->y;
+			p02[2] = p2->z - p0->z;
+			Cross( p01, p02, n );
+			Unit( n, n );
+			n[1] = fabs( n[1] );
+			glColor3f( n[1], .5f*n[1], 0. );
+
+			glVertex3f( p0->x, p0->y, p0->z );
+			glVertex3f( p1->x, p1->y, p1->z );
+			glVertex3f( p2->x, p2->y, p2->z );
+		}
+	glEnd( );
+	glPopMatrix( );
+}
+
+// Function to draw the cessna as a wireframe
+
+void drawCessnaWireFrame(){
+	int i;
+	struct edge *ep;
+	struct point *p0, *p1;
+
+	glPushMatrix( );
+	glRotatef(-7., 0., 1., 0.);
+	glTranslatef( 0., -1., 0. );
+	glRotatef(  97.,   0., 1., 0. );
+	glRotatef( -15.,   0., 0., 1. );
+	glBegin( GL_LINES );
+		for( i=0, ep = CESSNAedges; i < CESSNAnedges; i++, ep++ )
+		{
+			p0 = &CESSNApoints[ ep->p0 ];
+			p1 = &CESSNApoints[ ep->p1 ];
+			glVertex3f( p0->x, p0->y, p0->z );
+			glVertex3f( p1->x, p1->y, p1->z );
+		}
+	glEnd( );
+	glPopMatrix( );
+}
 
 // initialize the display lists that will not change:
 // (a display list is a way to store opengl commands in
@@ -752,9 +817,7 @@ InitGraphics( )
 void
 InitLists( )
 {
-	float dx = BOXSIZE / 2.f;
-	float dy = BOXSIZE / 2.f;
-	float dz = BOXSIZE / 2.f;
+	
 	glutSetWindow( MainWindow );
 
 	// create the object:
@@ -762,51 +825,7 @@ InitLists( )
 	BoxList = glGenLists( 1 );
 	glNewList( BoxList, GL_COMPILE );
 
-		glBegin( GL_QUADS );
-
-			glColor3f( 1., 0., 0. );
-
-				glNormal3f( 1., 0., 0. );
-					glVertex3f(  dx, -dy,  dz );
-					glVertex3f(  dx, -dy, -dz );
-					glVertex3f(  dx,  dy, -dz );
-					glVertex3f(  dx,  dy,  dz );
-
-				glNormal3f(-1., 0., 0.);
-					glVertex3f( -dx, -dy,  dz);
-					glVertex3f( -dx,  dy,  dz );
-					glVertex3f( -dx,  dy, -dz );
-					glVertex3f( -dx, -dy, -dz );
-
-			glColor3f( 0., 1., 0. );
-
-				glNormal3f(0., 1., 0.);
-					glVertex3f( -dx,  dy,  dz );
-					glVertex3f(  dx,  dy,  dz );
-					glVertex3f(  dx,  dy, -dz );
-					glVertex3f( -dx,  dy, -dz );
-
-				glNormal3f(0., -1., 0.);
-					glVertex3f( -dx, -dy,  dz);
-					glVertex3f( -dx, -dy, -dz );
-					glVertex3f(  dx, -dy, -dz );
-					glVertex3f(  dx, -dy,  dz );
-
-			glColor3f(0., 0., 1.);
-
-				glNormal3f(0., 0., 1.);
-					glVertex3f(-dx, -dy, dz);
-					glVertex3f( dx, -dy, dz);
-					glVertex3f( dx,  dy, dz);
-					glVertex3f(-dx,  dy, dz);
-
-				glNormal3f(0., 0., -1.);
-					glVertex3f(-dx, -dy, -dz);
-					glVertex3f(-dx,  dy, -dz);
-					glVertex3f( dx,  dy, -dz);
-					glVertex3f( dx, -dy, -dz);
-
-		glEnd( );
+		drawCessnaPolygons();
 
 	glEndList( );
 
@@ -816,7 +835,7 @@ InitLists( )
 	AxesList = glGenLists( 1 );
 	glNewList( AxesList, GL_COMPILE );
 		glLineWidth( AXES_WIDTH );
-			Axes( 1.5 );
+			Axes( 10.5 );
 		glLineWidth( 1. );
 	glEndList( );
 }
