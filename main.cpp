@@ -341,8 +341,9 @@ Display( )
 
 
 	// set the eye position, look-at position, and up-vector:
+	// Solid description of this function: https://www.gamedev.net/forums/topic/65364-how-to-use-glulookat/
 
-	gluLookAt( 0.f, 0.f, 3.f,     0.f, 0.f, 0.f,     0.f, 1.f, 0.f );
+	gluLookAt( 20.f, 15.f, 20.f,     0.f, 0.f, 0.f,     0.f, 1.f, 0.f );
 
 
 	// rotate the scene:
