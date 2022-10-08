@@ -787,7 +787,6 @@ void drawCessnaPolygons(){
 }
 
 // Function to draw the cessna as a wireframe
-
 void drawCessnaWireFrame(){
 	int i;
 	struct edge *ep;
@@ -810,6 +809,26 @@ void drawCessnaWireFrame(){
 	glPopMatrix( );
 }
 
+// propeller parameters:
+
+
+#define PROPELLER_WIDTH		 0.4
+void drawPropeller(int PROPELLER_RADIUS){
+	// draw the cessna propeller with radius PROPELLER_RADIUS and
+	//	width PROPELLER_WIDTH centered at (0.,0.,0.) in the XY plane
+
+	glBegin( GL_TRIANGLES );
+	
+		glVertex2f(  PROPELLER_RADIUS,  PROPELLER_WIDTH/2. );
+		glVertex2f(  0., 0. );
+		glVertex2f(  PROPELLER_RADIUS, -PROPELLER_WIDTH/2. );
+
+		glVertex2f( -PROPELLER_RADIUS, -PROPELLER_WIDTH/2. );
+		glVertex2f(  0., 0. );
+		glVertex2f( -PROPELLER_RADIUS,  PROPELLER_WIDTH/2. );
+	glEnd( );
+}
+
 // initialize the display lists that will not change:
 // (a display list is a way to store opengl commands in
 //  memory so that they can be played back efficiently at a later time
@@ -818,6 +837,10 @@ void drawCessnaWireFrame(){
 void
 InitLists( )
 {
+	float propellerOneRadi = 3.f;
+	float propellerCoordX = -10.f;
+	float propellerCoordy = 3.f;
+	float propellerCoordz = 0.f;
 	
 	glutSetWindow( MainWindow );
 
@@ -827,6 +850,9 @@ InitLists( )
 	glNewList( BoxList, GL_COMPILE );
 
 		drawCessnaPolygons();
+		glColor3f(1.0, 0., 0.);
+		glTranslatef(propellerCoordX, propellerCoordy, propellerCoordz);
+		drawPropeller(propellerOneRadi);
 
 	glEndList( );
 
