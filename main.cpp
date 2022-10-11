@@ -175,14 +175,24 @@ int		DebugOn;				// != 0 means to print debugging info
 int		DepthCueOn;				// != 0 means to use intensity depth cueing
 int		DepthBufferOn;			// != 0 means to use the z-buffer
 int		DepthFightingOn;		// != 0 means to force the creation of z-fighting
-GLuint	BoxList;				// object display list
+GLuint	CessnaList;				// object display list
+GLuint  PropellerList;			// propeller display list
+GLuint 	PropellerListTwo;
+GLuint 	PropellerListThree;
 int		MainWindow;				// window id for main graphics window
 float	Scale;					// scaling factor
 int		ShadowsOn;				// != 0 means to turn shadows on
 int		WhichColor;				// index into Colors[ ]
 int		WhichProjection;		// ORTHO or PERSP
+int 	ViewPosition;			// INSIDE or OUTSIDE
 int		Xmouse, Ymouse;			// mouse values
 float	Xrot, Yrot;				// rotation angles in degrees
+
+// initialize an enum to toggle between the different views INSIDE/OUTSIDE
+enum Positions {
+	OUTSIDE,
+	INSIDE
+};
 
 
 // function prototypes:
@@ -197,6 +207,7 @@ void	DoDepthMenu( int );
 void	DoDebugMenu( int );
 void	DoMainMenu( int );
 void	DoProjectMenu( int );
+void 	ViewPositionMenu(int); // my own menu position view
 void	DoRasterString( float, float, float, char * );
 void	DoStrokeString( float, float, float, float, char * );
 float	ElapsedSeconds( );
@@ -209,6 +220,7 @@ void	MouseMotion( int, int );
 void	Reset( );
 void	Resize( int, int );
 void	Visibility( int );
+
 
 void			Axes( float );
 
@@ -340,23 +352,34 @@ Display( )
 	glLoadIdentity( );
 
 
-	// set the eye position, look-at position, and up-vector:
+
 	// Solid description of this function: https://www.gamedev.net/forums/topic/65364-how-to-use-glulookat/
+	if (ViewPosition == INSIDE){
+		// Hint: Use the graphics programming strategy where the Display( ) function
+		// looks at a collection of global variables and draws the scene correctly. The other
+		// parts of the program simply set the global variables and post a redisplay.
+		// Resource for the coordinates: https://web.engr.oregonstate.edu/~mjb/cs550/Projects/proj02.html
+		// new view once inside.
+		gluLookAt(0., 1.2, 1., 0., 5., 10., 0.f, 1.f, 0.f);
+	}else{
+		// Kept the same code for the outside
+			
+		// set the eye position, look-at position, and up-vector:
+		gluLookAt( 20.f, 15.f, 20.f,     0.f, 0.f, 0.f,     0.f, 1.f, 0.f );
+		// rotate the scene:
+		glRotatef( (GLfloat)Yrot, 0.f, 1.f, 0.f );
+		glRotatef( (GLfloat)Xrot, 1.f, 0.f, 0.f );
 
-	gluLookAt( 20.f, 15.f, 20.f,     0.f, 0.f, 0.f,     0.f, 1.f, 0.f );
+		// uniformly scale the scene:
+		if( Scale < MINSCALE )
+			Scale = MINSCALE;
+		glScalef( (GLfloat)Scale, (GLfloat)Scale, (GLfloat)Scale );
+
+	
+	}
+	
 
 
-	// rotate the scene:
-
-	glRotatef( (GLfloat)Yrot, 0.f, 1.f, 0.f );
-	glRotatef( (GLfloat)Xrot, 1.f, 0.f, 0.f );
-
-
-	// uniformly scale the scene:
-
-	if( Scale < MINSCALE )
-		Scale = MINSCALE;
-	glScalef( (GLfloat)Scale, (GLfloat)Scale, (GLfloat)Scale );
 
 
 	// set the fog parameters:
@@ -392,14 +415,20 @@ Display( )
 
 	// draw the box object by calling up its display list:
 
-	glCallList( BoxList );
+	glCallList( CessnaList );
+	glCallList( PropellerList);
+	glCallList( PropellerListTwo);
+	glCallList( PropellerListThree);
 
 #ifdef DEMO_Z_FIGHTING
 	if( DepthFightingOn != 0 )
 	{
 		glPushMatrix( );
 			glRotatef( 90.f,   0.f, 1.f, 0.f );
-			glCallList( BoxList );
+			glCallList( CessnaList );
+			glCallList( PropellerList);
+			glCallList( PropellerListTwo);
+			glCallList( PropellerListThree);
 		glPopMatrix( );
 	}
 #endif
@@ -443,6 +472,7 @@ Display( )
 
 	glFlush( );
 }
+
 
 
 void
@@ -544,6 +574,14 @@ DoProjectMenu( int id )
 	glutPostRedisplay( );
 }
 
+// I had to find a way to edit the glu
+void ViewPositionMenu(int id){
+	ViewPosition = id;
+
+	glutSetWindow(MainWindow);
+	glutPostRedisplay();
+}
+
 
 // use glut to display a string of characters using a raster font:
 
@@ -631,6 +669,11 @@ InitMenus( )
 	glutAddMenuEntry( "Orthographic",  ORTHO );
 	glutAddMenuEntry( "Perspective",   PERSP );
 
+	// The menu can be creating using the glutCreateMenu API call
+	int viewMenu = glutCreateMenu(ViewPositionMenu);
+	glutAddMenuEntry("Outside", OUTSIDE);
+	glutAddMenuEntry("Inside", INSIDE);
+
 	int mainmenu = glutCreateMenu( DoMainMenu );
 	glutAddSubMenu(   "Axes",          axesmenu);
 	glutAddSubMenu(   "Axis Colors",   colormenu);
@@ -645,6 +688,7 @@ InitMenus( )
 
 	glutAddSubMenu(   "Depth Cue",     depthcuemenu);
 	glutAddSubMenu(   "Projection",    projmenu );
+	glutAddSubMenu(	  "View",          viewMenu);
 	glutAddMenuEntry( "Reset",         RESET );
 	glutAddSubMenu(   "Debug",         debugmenu);
 	glutAddMenuEntry( "Quit",          QUIT );
@@ -813,12 +857,16 @@ void drawCessnaWireFrame(){
 
 
 #define PROPELLER_WIDTH		 0.4
-void drawPropeller(int PROPELLER_RADIUS){
+void drawPropeller(int PROPELLER_RADIUS, float coordX, float coordY, float coordZ, GLuint PropellerListAttr){
 	// draw the cessna propeller with radius PROPELLER_RADIUS and
 	//	width PROPELLER_WIDTH centered at (0.,0.,0.) in the XY plane
-
-	glBegin( GL_TRIANGLES );
 	
+	PropellerListAttr = glGenLists( 1 );
+	glNewList( PropellerListAttr, GL_COMPILE );
+		glTranslatef(coordX, coordY, coordZ);
+		glScalef(2., 2., 2.);
+		glColor3f(1., 0., 0.);
+		glBegin( GL_TRIANGLES );
 		glVertex2f(  PROPELLER_RADIUS,  PROPELLER_WIDTH/2. );
 		glVertex2f(  0., 0. );
 		glVertex2f(  PROPELLER_RADIUS, -PROPELLER_WIDTH/2. );
@@ -827,6 +875,39 @@ void drawPropeller(int PROPELLER_RADIUS){
 		glVertex2f(  0., 0. );
 		glVertex2f( -PROPELLER_RADIUS,  PROPELLER_WIDTH/2. );
 	glEnd( );
+	glEndList();
+	
+	
+
+	
+}
+void drawSphere(GLfloat r, GLint lats, GLint longs){
+	// The following sphere was inspired by:
+	//  https://community.khronos.org/t/drawing-a-sphere-using-for-loop-i-want-to-draw-a-sphere-instead-of-circle-please-help/105806/2
+	// inputs radius, latitude, longitude and is a void function (returns nothing)
+	int i, j;
+	for(i = 0; i <= lats; i++) 
+	{
+		double lat0 = M_PI * (-0.5 + (double) (i - 1) / lats);
+		double z0  = sin(lat0)*r;
+		double zr0 =  cos(lat0)*r;
+		double lat1 = M_PI * (-0.5 + (double) i / lats);
+		double z1 = sin(lat1)*r;
+		double zr1 = cos(lat1)*r;
+		glColor3f(1., 0., 0.);
+		glBegin(GL_QUAD_STRIP);
+		for(j = 0; j <= longs; j++)
+		{
+			GLfloat lng = 2 * M_PI * (double) (j - 1) / longs;
+			GLfloat x = cos(lng);
+			GLfloat y = sin(lng);
+			glNormal3f(x * zr1, y * zr1, z1);
+			glVertex3f(x * zr1, y * zr1, z1);
+			glNormal3f(x * zr0, y * zr0, z0);
+			glVertex3f(x * zr0, y * zr0, z0);
+		}
+		glEnd();
+	}
 }
 
 // initialize the display lists that will not change:
@@ -834,27 +915,68 @@ void drawPropeller(int PROPELLER_RADIUS){
 //  memory so that they can be played back efficiently at a later time
 //  with a call to glCallList( )
 
+
 void
 InitLists( )
 {
-	float propellerOneRadi = 3.f;
-	float propellerCoordX = -10.f;
-	float propellerCoordy = 3.f;
-	float propellerCoordz = 0.f;
-	
+	float PROPELLER_RADIUS = 3.f;
+	float PROPELLER_RADIUS_TWO = 5.f;
+	float coordX = -10.f;
+	float coordY = 3.f;
+	float coordZ = 0.f;
 	glutSetWindow( MainWindow );
-
 	// create the object:
-
-	BoxList = glGenLists( 1 );
-	glNewList( BoxList, GL_COMPILE );
-
+	CessnaList = glGenLists( 1 );
+	glNewList( CessnaList, GL_COMPILE );
 		drawCessnaPolygons();
-		glColor3f(1.0, 0., 0.);
-		glTranslatef(propellerCoordX, propellerCoordy, propellerCoordz);
-		drawPropeller(propellerOneRadi);
-
+		glPushMatrix();
+		glTranslatef(0., 4., 40.);
+		drawSphere(7, 100, 100);
+		glPopMatrix();
 	glEndList( );
+
+
+
+
+	// glMatrixMode(GL_MODELVIEW);
+	// glLoadIdentity();
+	// glPushMatrix();
+	// drawPropeller(5.0, 0., 0., 7.5, PropellerList);
+	// glPopMatrix();
+
+	
+	glPushMatrix();
+	PropellerList = glGenLists( 1 );
+	glNewList( PropellerList, GL_COMPILE );
+	glBegin( GL_TRIANGLES );
+		glTranslatef(coordX, coordY, coordZ);
+		glScalef(2., 2., 2.);
+		glColor3f(1., 0., 0.);
+		glVertex2f(  PROPELLER_RADIUS,  PROPELLER_WIDTH/2. );
+		glVertex2f(  0., 0. );
+		glVertex2f(  PROPELLER_RADIUS, -PROPELLER_WIDTH/2. );
+		glVertex2f( -PROPELLER_RADIUS, -PROPELLER_WIDTH/2. );
+		glVertex2f(  0., 0. );
+		glVertex2f( -PROPELLER_RADIUS,  PROPELLER_WIDTH/2. );
+	glEnd( );
+	glEndList();
+	glPopMatrix();
+
+	
+	glPushMatrix();
+	PropellerListTwo = glGenLists( 1 );
+	glNewList( PropellerListTwo, GL_COMPILE );
+	glBegin( GL_TRIANGLES );
+		
+		glVertex2f(  PROPELLER_RADIUS_TWO,  PROPELLER_WIDTH/2. );
+		glVertex2f(  0., 0. );
+		glVertex2f(  PROPELLER_RADIUS_TWO, -PROPELLER_WIDTH/2. );
+		glVertex2f( -PROPELLER_RADIUS_TWO, -PROPELLER_WIDTH/2. );
+		glVertex2f(  0., 0. );
+		glVertex2f( -PROPELLER_RADIUS_TWO,  PROPELLER_WIDTH/2. );
+	glEnd( );
+	glEndList();
+	glPopMatrix();
 
 
 	// create the axes:
@@ -1016,6 +1138,8 @@ Reset( )
 	ShadowsOn = 0;
 	WhichColor = WHITE;
 	WhichProjection = PERSP;
+	ViewPosition = OUTSIDE; // setup a new default value for the ViewPosition
+
 	Xrot = Yrot = 0.;
 }
 
