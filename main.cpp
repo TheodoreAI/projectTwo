@@ -3,6 +3,7 @@
 #include <ctype.h>
 
 #define _USE_MATH_DEFINES
+
 #include <math.h>
 
 #ifdef WIN32
@@ -179,6 +180,7 @@ GLuint	CessnaList;				// object display list
 GLuint  PropellerList;			// propeller display list
 GLuint 	PropellerListTwo;
 GLuint 	PropellerListThree;
+GLuint  RandomList;
 int		MainWindow;				// window id for main graphics window
 float	Scale;					// scaling factor
 int		ShadowsOn;				// != 0 means to turn shadows on
@@ -187,12 +189,14 @@ int		WhichProjection;		// ORTHO or PERSP
 int 	ViewPosition;			// INSIDE or OUTSIDE
 int		Xmouse, Ymouse;			// mouse values
 float	Xrot, Yrot;				// rotation angles in degrees
-
+float 	BladeAngle;
 // initialize an enum to toggle between the different views INSIDE/OUTSIDE
 enum Positions {
 	OUTSIDE,
 	INSIDE
 };
+
+bool Frozen;
 
 
 // function prototypes:
@@ -282,7 +286,7 @@ main( int argc, char *argv[ ] )
 // this is typically where animation parameters are set
 //
 // do not call Display( ) from here -- let glutPostRedisplay( ) do it
-
+#define MS_IN_THE_ANIMATION_CYCLE	10000
 void
 Animate( )
 {
@@ -290,6 +294,12 @@ Animate( )
 	// for Display( ) to find:
 
 	// force a call to Display( ) next time it is convenient:
+	// From the assignment description: https://web.engr.oregonstate.edu/~mjb/cs550/Projects/proj02.html
+	// Using a technique where glutGet gets the time in milliseconds since epoch time to calculate
+	// a time interval passed independent of the system
+	int ms = glutGet( GLUT_ELAPSED_TIME );	// milliseconds
+	ms  %=  MS_IN_THE_ANIMATION_CYCLE;
+	BladeAngle = (float) ms  /  (float) MS_IN_THE_ANIMATION_CYCLE;
 
 	glutSetWindow( MainWindow );
 	glutPostRedisplay( );
@@ -302,12 +312,8 @@ void
 Display( )
 {
 	// set which window we want to do the graphics into:
-
 	glutSetWindow( MainWindow );
-
-
 	// erase the background:
-
 	glDrawBuffer( GL_BACK );
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
@@ -414,11 +420,47 @@ Display( )
 
 
 	// draw the box object by calling up its display list:
-
 	glCallList( CessnaList );
+
+	// draw the object that we are going to be looking at
+	// Rotation about their translate axis for the propellers: https://community.khronos.org/t/rotation-vertical-orientation/29338/4
+	glPushMatrix();
+		glColor3f(0.5, 0.7, 0.3);
+		glTranslatef(30., 4., 40.);
+		// drawSphere(7, 100, 100);
+		glCallList( RandomList );
+	glPopMatrix();
+
+		glPushMatrix();
+		glColor3f(0., 1., 1.);
+		glTranslatef(-30., 4., 40.);
+		// drawSphere(7, 100, 100);
+		glCallList( RandomList );
+	glPopMatrix();
+
+	// Rotate first blade
+	glPushMatrix();
+	// glScalef(3.0, 3.0, 3.0);
+	glTranslatef(-10.0f, 3.0f, 0.);
+	glRotatef(-1*5000*BladeAngle, 0., 1., 0.);
 	glCallList( PropellerList);
+	glPopMatrix();
+
+
+	glPushMatrix();
+	// glScalef(3.0, 3.0, 3.0);
+	glTranslatef(10.0f, 3.0f, 0.);
+	glRotatef(5000*BladeAngle, 0., 1., 0.);
 	glCallList( PropellerListTwo);
+	glPopMatrix();
+
+	glPushMatrix();
+	glTranslatef(0.f, 0.f, 7.5);
+	glRotatef(2500*BladeAngle, 0., 0., 1.);
+	
 	glCallList( PropellerListThree);
+	glPopMatrix();
+	
 
 #ifdef DEMO_Z_FIGHTING
 	if( DepthFightingOn != 0 )
@@ -426,6 +468,7 @@ Display( )
 		glPushMatrix( );
 			glRotatef( 90.f,   0.f, 1.f, 0.f );
 			glCallList( CessnaList );
+			glCallList( RandomList );
 			glCallList( PropellerList);
 			glCallList( PropellerListTwo);
 			glCallList( PropellerListThree);
@@ -820,8 +863,8 @@ void drawCessnaPolygons(){
 			Cross( p01, p02, n );
 			Unit( n, n );
 			n[1] = fabs( n[1] );
-			glColor3f( n[1], .5f*n[1], 0. );
-
+			glColor3f( n[1], .5f*n[1], 0.  );
+			
 			glVertex3f( p0->x, p0->y, p0->z );
 			glVertex3f( p1->x, p1->y, p1->z );
 			glVertex3f( p2->x, p2->y, p2->z );
@@ -857,16 +900,11 @@ void drawCessnaWireFrame(){
 
 
 #define PROPELLER_WIDTH		 0.4
-void drawPropeller(int PROPELLER_RADIUS, float coordX, float coordY, float coordZ, GLuint PropellerListAttr){
+void drawPropeller(int PROPELLER_RADIUS){
 	// draw the cessna propeller with radius PROPELLER_RADIUS and
 	//	width PROPELLER_WIDTH centered at (0.,0.,0.) in the XY plane
 	
-	PropellerListAttr = glGenLists( 1 );
-	glNewList( PropellerListAttr, GL_COMPILE );
-		glTranslatef(coordX, coordY, coordZ);
-		glScalef(2., 2., 2.);
-		glColor3f(1., 0., 0.);
-		glBegin( GL_TRIANGLES );
+	glBegin( GL_TRIANGLES );
 		glVertex2f(  PROPELLER_RADIUS,  PROPELLER_WIDTH/2. );
 		glVertex2f(  0., 0. );
 		glVertex2f(  PROPELLER_RADIUS, -PROPELLER_WIDTH/2. );
@@ -875,11 +913,6 @@ void drawPropeller(int PROPELLER_RADIUS, float coordX, float coordY, float coord
 		glVertex2f(  0., 0. );
 		glVertex2f( -PROPELLER_RADIUS,  PROPELLER_WIDTH/2. );
 	glEnd( );
-	glEndList();
-	
-	
-
-	
 }
 void drawSphere(GLfloat r, GLint lats, GLint longs){
 	// The following sphere was inspired by:
@@ -915,6 +948,16 @@ void drawSphere(GLfloat r, GLint lats, GLint longs){
 //  memory so that they can be played back efficiently at a later time
 //  with a call to glCallList( )
 
+void drawObject(){
+	// Drawing a cylinder: https://registry.khronos.org/OpenGL-Refpages/gl2.1/xhtml/gluCylinder.xml
+	// 
+	glutWireTeapot(10);
+	GLUquadricObj *quadratic;
+	quadratic = gluNewQuadric();
+	gluCylinder(quadratic,10.1f,10.1f,30.0f,32,32);
+
+	
+}
 
 void
 InitLists( )
@@ -929,54 +972,44 @@ InitLists( )
 	CessnaList = glGenLists( 1 );
 	glNewList( CessnaList, GL_COMPILE );
 		drawCessnaPolygons();
-		glPushMatrix();
-		glTranslatef(0., 4., 40.);
-		drawSphere(7, 100, 100);
-		glPopMatrix();
 	glEndList( );
 
+	RandomList = glGenLists( 1 );
+	glNewList(RandomList, GL_COMPILE);
+		glPushMatrix();
+		glRotatef(270., 1.f, 0.f, 0.f);
+		drawObject();
+		glPopMatrix();
+	glEndList();
 
-
-
-	// glMatrixMode(GL_MODELVIEW);
-	// glLoadIdentity();
-	// glPushMatrix();
-	// drawPropeller(5.0, 0., 0., 7.5, PropellerList);
-	// glPopMatrix();
-
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
 	
-	glPushMatrix();
 	PropellerList = glGenLists( 1 );
-	glNewList( PropellerList, GL_COMPILE );
-	glBegin( GL_TRIANGLES );
-		glTranslatef(coordX, coordY, coordZ);
-		glScalef(2., 2., 2.);
-		glColor3f(1., 0., 0.);
-		glVertex2f(  PROPELLER_RADIUS,  PROPELLER_WIDTH/2. );
-		glVertex2f(  0., 0. );
-		glVertex2f(  PROPELLER_RADIUS, -PROPELLER_WIDTH/2. );
-		glVertex2f( -PROPELLER_RADIUS, -PROPELLER_WIDTH/2. );
-		glVertex2f(  0., 0. );
-		glVertex2f( -PROPELLER_RADIUS,  PROPELLER_WIDTH/2. );
-	glEnd( );
+	glNewList(PropellerList, GL_COMPILE);
+		glPushMatrix();
+		glRotatef(95, 0.f, 0.f, 0.f);
+		drawPropeller(3.0);
+		glPopMatrix();
 	glEndList();
-	glPopMatrix();
-
 	
-	glPushMatrix();
-	PropellerListTwo = glGenLists( 1 );
-	glNewList( PropellerListTwo, GL_COMPILE );
-	glBegin( GL_TRIANGLES );
-		
-		glVertex2f(  PROPELLER_RADIUS_TWO,  PROPELLER_WIDTH/2. );
-		glVertex2f(  0., 0. );
-		glVertex2f(  PROPELLER_RADIUS_TWO, -PROPELLER_WIDTH/2. );
-		glVertex2f( -PROPELLER_RADIUS_TWO, -PROPELLER_WIDTH/2. );
-		glVertex2f(  0., 0. );
-		glVertex2f( -PROPELLER_RADIUS_TWO,  PROPELLER_WIDTH/2. );
-	glEnd( );
+
+	PropellerListTwo = glGenLists(1);
+	glNewList(PropellerListTwo, GL_COMPILE);
+		glPushMatrix();
+		glRotatef(95, 0.f, 0.f, 0.f);
+		drawPropeller(3.0);
+		glPopMatrix();
 	glEndList();
-	glPopMatrix();
+
+	PropellerListThree = glGenLists(1);
+	glNewList(PropellerListThree, GL_COMPILE);
+		glPushMatrix();
+		glRotatef(0., 0.f, 0.f, 1.f);
+		drawPropeller(5.0);
+		glPopMatrix();
+	glEndList();
+	
 
 
 	// create the axes:
@@ -995,11 +1028,27 @@ InitLists( )
 void
 Keyboard( unsigned char c, int x, int y )
 {
+	
 	if( DebugOn != 0 )
 		fprintf( stderr, "Keyboard: '%c' (0x%0x)\n", c, c );
 
 	switch( c )
-	{
+	{	case 'v':
+		case 'V':
+			ViewPosition = INSIDE;
+			break;
+		case 'b':
+		case 'B':
+			ViewPosition = OUTSIDE;
+			break;
+		case 'f':
+		case 'F':
+			Frozen = ! Frozen;
+			if( Frozen )
+				glutIdleFunc( NULL );
+			else
+				glutIdleFunc( Animate );
+			break;
 		case 'o':
 		case 'O':
 			WhichProjection = ORTHO;
@@ -1139,6 +1188,7 @@ Reset( )
 	WhichColor = WHITE;
 	WhichProjection = PERSP;
 	ViewPosition = OUTSIDE; // setup a new default value for the ViewPosition
+	Frozen = 0; // in c++ 0 is false
 
 	Xrot = Yrot = 0.;
 }
